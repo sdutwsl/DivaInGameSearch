@@ -1,4 +1,4 @@
-# 发型与自定义道具搜索：可行性、证据与 Cloud 开发计划
+# 发型与自定义道具搜索：可行性、证据与 Claude 开发计划
 
 日期：2026-11-02。代码基线：`05c99d244a6f655017f0b710b240b0d6d48103b4`（1.0.11）。本报告不改变版本号。
 
@@ -6,7 +6,9 @@
 
 **发型搜索可行，实体数据来源已经确认；发型与道具页面导航已有实机证据。指定发型／道具的原生列表定位、试穿预览和更换尚未认证，不能宣称现有服装定位器已经支持它们。**
 
-朋友电脑上的 Agent 无须游戏本体，可以完成目录读取、检索、独立页面、卡片交互、通用导航状态机、后端接口与隔离测试。原生目标定位须补充真实列表协议后才能开放；若没有这些证据，应交付可编译、可预览、明确禁用未知原生能力的实现，而不是猜偏移写内存。下文给出可直接开工的文件、接口契约、任务顺序和剩余实验。
+**交付分工已由用户明确：Claude Agent 在朋友的非 Windows、无游戏环境完成代码、自审、可运行的测试并提交 PR；本机接收 PR 后负责 Windows 构建、游戏验证和最终验收。** 不要求 Claude 安装游戏、搭建 Windows、运行 ImGui 窗口或完成实机认证后才能交付。
+
+Claude 的目标是把发型／自定义道具功能代码尽量完整实现，包括目录、搜索、UI、请求与原生路由／执行接线，不把本任务缩成一份计划或只有接口的占位 PR。现有原生证据与缺口在下文明确列出，供其判断实现；不能验证的假设在 PR 中说明，由本机接续核查，不伪称已实机通过。缺少某项原生协议不是要求 Claude 在非 Windows 机器上完成逆向的硬条件。
 
 本轮核对了生产代码、已提交的研究文档、现有原始静态日志，并定向读取既有 PC 地区定制表。没有游戏进程可供本轮验证，没有启动游戏、注入或新增实机动作。本轮的新增事实是 PC 表数据；导航实机结论来自此前记录。
 
@@ -16,11 +18,13 @@
 
 顶部领域 Tab：**歌曲｜模型｜发型｜自定义道具**。现有服装领域内部仍可沿用 Module 命名；面向玩家的类别采用“模型”。恢复目前隐藏的 Accessories 入口为独立“自定义道具”，另增“发型”。不是给旧饰品 Tab 改一个标签就算完成。
 
+用户提供的三张原生截图及逐图说明见 [原生自定义页面与 UI 层级](../design/NATIVE_CUSTOMIZATION_UI_REFERENCE.md)。图一为自定义父页，图二为发型子页，图三为自定义道具子页。父页三个相关入口同级；四个饰品部位只属于自定义道具子页。原生父页另外还有 T 恤编辑、按键音设定和游戏与操作设定，本项目无需为它们新增搜索 Tab。
+
 | 页面 | 内容与筛选 | 不应混入 |
 | --- | --- | --- |
 | 模型 | 现有服装搜索及歌曲推荐模型功能 | 不改坏现有推荐、预览、更换 |
 | 发型 | 仅 `parts=KAMI`；人物、来源、名称／别名／ID、排序 | 四部位饰品 |
-| 自定义道具 | `ZUJO/FACE/NECK/BACK`；头部／脸部／胸颈／背部、人物、来源、名称／别名／ID、排序 | 发型 |
+| 自定义道具 | `ZUJO/FACE/NECK/BACK`；头／脸／胸口／背部、人物、来源、名称／别名／ID、排序 | 发型 |
 
 三个定制领域分别保存查询、筛选、选择、滚动和查询修订。初次人物为全部，重新打开保留玩家筛选。未知部位保留诊断，不自动当成发型或头部。
 
@@ -191,7 +195,9 @@ Mod 现有扫描已支持 `gm_customize_item_tbl.farc`、`mod_gm_customize_item_
 
 数据格式参考：[ReDIVA customize_item_table.cpp](https://github.com/korenkonder/ReDIVA/blob/207c270472ba3f0edcda29bae777e5bd4a8952d9/src/CRE/customize_item_table.cpp)。ReDIVA该版本只列四饰品部位，不能据此否定PC表中的KAMI，也不能把开源重建工程结构大小当商业PC版内存布局。
 
-## 8. 无游戏 Agent 的实施顺序与验收
+## 8. Claude 实施顺序与双方交付分工
+
+下面的测试条目是设计参考和可执行时的自测建议，**不是要求 Claude 在非 Windows 环境逐项跑通的完成门槛**。Claude 在现有环境能运行哪些就运行哪些；不能执行的 Windows／ImGui／游戏项在 PR 中说明即可。无需为满足本任务额外搭 Windows 虚拟机或 Wine。
 
 ### A. 数据与三个独立定制领域
 
@@ -214,11 +220,11 @@ Mod 现有扫描已支持 `gm_customize_item_tbl.farc`、`mod_gm_customize_item_
 - 扩展现有 `NativePageRouterCheck` 模拟内存夹具与原生调用替身，断言调用顺序和次数，避免测试实际跳入生产RVA。
 - 新定位器未知Profile默认Unsupported；测试伪造成功结果、陈旧record、目标缺失、重复ID时不能误报成功或写入。
 
-### D. 本机补证后启用原生能力
+### D. 本机接收 PR 后验证
 
-按下一节补真实Profile后，再分别开放发型Locate、道具Locate、Preview、Equip。Cloud可完成接口及实现逻辑，但此阶段需要有游戏的一方给证据／做验收，不应让无本体Agent凭空承诺全功能实机通过。
+Claude 完成实现、自审和适用测试后即可提交 PR。由用户或本机 Agent 拉取 PR，完成 Windows 构建、共用预览和游戏内验证；遇到确实未认证的原生协议，再按下一节补证／调整 Profile。实机通过与最终合并验收由本机负责，不要求 Claude 提供游戏截图、Windows 构建日志或硬件运行结果。
 
-无本体 Windows x64 开发依赖：PowerShell7、CMake3.24+、完整MSVC与Windows SDK、.NET SDK8及NativeAOT依赖；源码依赖在 `third_party/vendor/`。不要求DML、游戏EXE或 `third_party/reference/`；首次构建仍可能需NuGet还原，详见 [依赖锁定](DEPENDENCY_LOCK.md)。Linux不能直接照搬本Windows构建流程，需要另设工具链，不能把“无游戏”理解为“任意系统零配置”。
+以下是**本机验证方**的 Windows x64 依赖和命令，不是 Claude 的环境前置：PowerShell7、CMake3.24+、完整MSVC与Windows SDK、.NET SDK8及NativeAOT依赖；源码依赖在 `third_party/vendor/`，详见 [依赖锁定](DEPENDENCY_LOCK.md)。Claude 可以在非 Windows 环境做源码审查、差异检查、可移植测试或其现有工具支持的检查，无须保证原 Windows 工程在其系统完整构建。
 
 ```powershell
 ./scripts/build.ps1
@@ -226,7 +232,15 @@ ctest --test-dir build/release -C Release --output-on-failure
 ./build/release/SearchPreview.exe --customization-demo
 ```
 
-以上为现有命令；Preview目前还没有完整发型演示，须在B阶段补。`verify.ps1 -GameDirectory`、真实资源审计与游戏注入是本机验收步骤，不是Cloud构建前置。本轮仅改文档，不声称重新构建或跑过所有测试。
+以上为本机的现有命令；Preview目前还没有完整发型演示，须在B阶段补。`verify.ps1 -GameDirectory`、真实资源审计与游戏注入同样由本机负责。本轮仅改文档，不声称重新构建或跑过所有测试。
+
+### Claude 的 PR 交付标准
+
+1. 提交功能实现代码，按本报告明确的四 Tab 与独立页面需求完成接线；不要求先跑本机验收再开 PR。
+2. 自行审查变更，运行其环境可执行且与变更相关的测试／检查。
+3. 推送分支并创建 PR，简述改动、已做检查、因环境未运行的项目，以及需要本机确认的原生假设／缺口。
+
+Windows 全量构建、实机跳转／定位／预览／更换、截图和最终功能验收属于接收方后续工作，不作为 Claude 完成 PR 的阻塞项。仍应如实区分“代码已实现”和“实机已验证”。
 
 ## 9. 剩余实机研究的最小交接格式
 
@@ -242,9 +256,9 @@ ctest --test-dir build/release -C Release --output-on-failure
 | 更换 | 明确拥有状态、可操作scope／slot及实际装备字段；不触发购买，选未拥有项必须拒绝；保存影响单独记录 |
 | 导航验收 | 分开测子页互跳、主页来源、选曲来源；普通单击／按钮不能跨页，双击到达后还要核对指定ID |
 
-给Cloud的 Profile 包必须是仓库可读的精简资料：构建哈希、RVA与函数签名、结构偏移和字段类型、边界／不变量、自然调用样例、成功及拒绝时的字段序列表、对应截图说明、执行前置和失败行为。原始全量游戏文件与完整内存dump不入仓库；摘录必要语义，不只给一个本机artifacts路径。
+给Claude的 Profile 包必须是仓库可读的精简资料：构建哈希、RVA与函数签名、结构偏移和字段类型、边界／不变量、自然调用样例、成功及拒绝时的字段序列表、对应截图说明、执行前置和失败行为。原始全量游戏文件与完整内存dump不入仓库；摘录必要语义，不只给一个本机artifacts路径。
 
-**完成标准分开记录：数据可搜、UI可用、页面到达、目标定位、临时预览、更换装备。** 任何一项未验，不用另一项的成功替代。当前可立即交给无游戏Agent的是A～C；D的未认证原生能力保持禁用，同时交付准确的待验列表。
+本机最终验收分别记录：数据可搜、UI可用、页面到达、目标定位、临时预览、更换装备，不用一项成功替代另一项。这是本机验收分类，不是 Claude 提交 PR 前必须逐项完成的实验清单。
 
 ## 10. 朋友开工时的最短阅读路径
 
@@ -252,6 +266,6 @@ ctest --test-dir build/release -C Release --output-on-failure
 2. `src/ui.*` → `customization_ui.*` → `customization_catalog.cpp`／`customization.cpp`。
 3. `customization_action.h` → `native_page_router.cpp` → `module_locator.*`／`module_action.*`（后两者只参考通用框架）。
 4. `tests/native_page_router_check.cpp` 和 `tests/customization_check.cpp`，先建立人工fixture再改领域。
-5. 按A、B、C分提交，描述中分别列离线通过项与仍待本机验收项，不增版本、不部署、不改其他Mod。
+5. 完成功能代码、自审和环境可运行的检查后推送 PR；实现可以按A、B、C分提交，列明已测和本机待验项，不增版本、不部署、不改其他Mod。
 
 现有资料索引：[整体定制计划](CUSTOMIZATION_SEARCH_PLAN.md)、[当前状态](STATUS.md)、[数据导入约定](CUSTOMIZATION_IMPORT.md)、[依赖与来源](SOURCES.md)。旧计划里“不纳入KAMI”和“饰品隐藏”的阶段范围已由本报告扩展，不能继续用旧阶段范围阻止实现独立发型页。
